@@ -8,24 +8,28 @@ angular.module('twitterCrisis', ['ui.bootstrap', 'LocalStorageModule', 'colorpic
     .controller('Ctrl', function($http, $scope, $interval, $compile, $filter, $modal, localStorageService) {
         getCurrentCrisis($http, $scope);
         // Set up datastructures
-        $scope.CURRENT_TAGS = {};
         $scope.CURRENT_COLS = [{'name': 'all', 'search': ''}];
         $scope.showCreateNewTag = false;
         $scope.PAUSED_COL = {'colname': null, 'recentTweet': null, 'queued' : 0};
-        $scope.tag = {"newTagName": "", "color": '#'+Math.floor(Math.random()*16777215).toString(16)};
+
+        $scope.TAGS = TweetTags($http);
+        $scope.USER_TAGS = UserTags($http);
 
         // Set up initial user
         getUser($http, $modal, localStorageService);
 
         // Start timer to constantly pull from DB
         $interval(function(){
-            updateTags($scope, $http);
-            updateTagInstances($scope, $http);
+            $scope.TAGS.updateTags($http);
+            $scope.TAGS.updateTagInstances($scope.tweets);
+            $scope.USER_TAGS.updateTags($http);
+            $scope.USER_TAGS.updateTagInstances($scope.tweets);
             getTweets($http, $scope);
         }, 1 * 1000);
 
         // Set up new tag popover, tag edit popovers
-        setUpNewTagPopover($compile, $scope);
+        setUpNewTagPopover($compile, $scope, "#newTagButton", "new-tag-popup");
+        setUpNewTagPopover($compile, $scope, "#newUserTagButton", "new-user-tag-popup");
         setUpTagEditPopovers();
 
         ////////////////////////
@@ -40,38 +44,9 @@ angular.module('twitterCrisis', ['ui.bootstrap', 'LocalStorageModule', 'colorpic
             getUser($http, $modal, localStorageService);
         }
 
-        // Save a new tag
-        $scope.saveNewTag = function (tagname) {
-            if (tagname) {
-                console.log("woot, actual tag");
-                saveTag($scope, $http, $filter, tagname);
-                $scope.tag.newTagName = "";
-                hidepop();
-            }
-        };
-
-        $scope.deleteTag = function (tag) {
-            deleteTag(tag, $http,  $scope);
-            hidepop();
-        }
-
-        $scope.editTagColor = function(tag, color) {
-            editTagColor(tag, color, $http, $scope);
-            hidepop();
-        }
-
-        $scope.editTagText = function(tag, newTagName) {
-            editTagText(tag, newTagName, $http, $scope);
-            hidepop();
-        }
-
         $scope.editTagPopover = function (tag) {
+            hidepop();
             closeOtherTagPopovers(tag);
-        };
-
-        // Apply a tag to a specific tweet
-        $scope.applyTag = function(tag_id, tweet_id, checked) {
-            applyTag(tag_id, tweet_id, checked, $http);
         };
 
         // Create a new column from search box
@@ -84,7 +59,6 @@ angular.module('twitterCrisis', ['ui.bootstrap', 'LocalStorageModule', 'colorpic
 
         // Generic create column with a given column search string
         $scope.createColumn = function(newColName) {
-            console.log(newColName);
             // Make new column based on search term
             $scope.CURRENT_COLS.push({'name': newColName, 'search': newColName});
             var el = $compile( "<column-stream colname='" + newColName + "'></column-stream>" )( $scope );
@@ -109,13 +83,22 @@ angular.module('twitterCrisis', ['ui.bootstrap', 'LocalStorageModule', 'colorpic
     // Directives
     /////////////////////////////////////
 
-    // Popup dialog for creating a new tweet
+    // Popup dialog for creating a new tag
     .directive("newTagPopup", function() {
         return {
             restrict: 'EA',
             transclude: false,    // Has to have the root scope
             scope: false,         // so it can have the same set of tags
             templateUrl: "newTag.html"
+        }
+    })
+
+    .directive("newUserTagPopup", function() {
+        return {
+            restrict: 'EA',
+            transclude: false,    // Has to have the root scope
+            scope: false,         // so it can have the same set of tags
+            templateUrl: "newUserTag.html"
         }
     })
 
